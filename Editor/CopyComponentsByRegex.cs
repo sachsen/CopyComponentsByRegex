@@ -32,6 +32,8 @@
 		static bool isRemoveBeforeCopy = false;
 		static bool isObjectCopy = false;
 		static bool isClothNNS = false;
+		static bool considerSkinmeshRenderer = false;
+		static bool copyValueIfExist = false;
 		static bool copyTransform = false;
 
 		void OnEnable () {
@@ -39,6 +41,8 @@
 			isRemoveBeforeCopy = bool.Parse (EditorUserSettings.GetConfigValue ("CopyComponentsByRegex/isRemoveBeforeCopy") ?? isRemoveBeforeCopy.ToString ());
 			isObjectCopy = bool.Parse (EditorUserSettings.GetConfigValue ("CopyComponentsByRegex/isObjectCopy") ?? isObjectCopy.ToString ());
 			isClothNNS = bool.Parse (EditorUserSettings.GetConfigValue ("CopyComponentsByRegex/isClothNNS") ?? isClothNNS.ToString ());
+			considerSkinmeshRenderer= bool.Parse(EditorUserSettings.GetConfigValue("CopyComponentsByRegex/considerSkinmeshRenderer") ?? considerSkinmeshRenderer.ToString());
+			copyValueIfExist = bool.Parse(EditorUserSettings.GetConfigValue("CopyComponentsByRegex/copyValueIfExist") ?? copyValueIfExist.ToString());
 			copyTransform = bool.Parse (EditorUserSettings.GetConfigValue ("CopyComponentsByRegex/copyTransform") ?? copyTransform.ToString ());
 		}
 
@@ -95,7 +99,7 @@
 			return down;
 		}
 
-		static void MergeWalkdown (GameObject go, ref TreeItem tree, int depth = 0) {
+		static void MergeWalkdown (GameObject go, ref TreeItem tree, int depth = 0) {//treeがコピー元、goがコピー先
 			if (depth > 0 && go.name != tree.name) {
 				return;
 			}
@@ -106,15 +110,14 @@
 				// 同じ種類のコンポーネントがある場合、既存のコンポーネントに上書きすることも出来る。
 				// しかし、一つのオブジェクトに複数のコンポーネントを設定したい場合もあるのでとりあえずコメントアウトしておく。
 				// 要望などがあれば切り替えても良いかもしれない。
+				
+				var targetComponent = go.GetComponent(component.GetType());
 				/*
-				var targetComponent = go.GetComponent(type);
 				if (targetComponent) {
 					UnityEditorInternal.ComponentUtility.PasteComponentValues(targetComponent);
 				} else {
 					UnityEditorInternal.ComponentUtility.PasteComponentAsNew(go);
-				}
-				*/
-				var targetComponent = go.GetComponent(component.GetType());
+				}*/
 				if (component is Cloth) {
 					var cloth = go.GetComponent<Cloth> () == null ? go.AddComponent<Cloth> () : go.GetComponent<Cloth> ();
 					CopyProperties (component, cloth);
@@ -123,7 +126,52 @@
 						UnityEditorInternal.ComponentUtility.PasteComponentValues (targetComponent);
 					}
 				} else {
-					UnityEditorInternal.ComponentUtility.PasteComponentAsNew (go);
+					
+					if (targetComponent && copyValueIfExist)
+                    {
+
+						if (considerSkinmeshRenderer && (component is SkinnedMeshRenderer))
+						{
+							Material[] mats = ((SkinnedMeshRenderer)component).sharedMaterials;
+							SkinnedMeshRenderer smr = go.GetComponent<SkinnedMeshRenderer>();
+							Material[] dstmats = smr.sharedMaterials;
+							for (int i = 0; i < mats.Length; i++)
+							{
+								dstmats[i] = mats[i];
+							}
+
+							smr.sharedMaterials = dstmats;
+							//go.GetComponent<SkinnedMeshRenderer>().materials = mats;
+						}
+						else if (considerSkinmeshRenderer && (component is MeshRenderer))
+						{
+							Material[] mats = ((MeshRenderer)component).sharedMaterials;
+							MeshRenderer smr = go.GetComponent<MeshRenderer>();
+							Material[] dstmats = smr.sharedMaterials;
+							for (int i = 0; i < mats.Length; i++)
+							{
+								dstmats[i] = mats[i];
+							}
+
+							smr.sharedMaterials = dstmats;
+						}
+						else if (considerSkinmeshRenderer && (component is MeshFilter))
+						{ 
+						//Nothing
+						}
+						else
+						{
+							Debug.Log(component.GetType());
+							UnityEditorInternal.ComponentUtility.PasteComponentValues(targetComponent);
+						}
+						
+						
+					}
+                    else
+                    {
+						UnityEditorInternal.ComponentUtility.PasteComponentAsNew(go);
+					}
+					
 				}
 
 				Component[] comps = go.GetComponents<Component> ();
@@ -410,7 +458,13 @@
 			EditorUserSettings.SetConfigValue (
 				"CopyComponentsByRegex/isClothNNS",
 				(isClothNNS = GUILayout.Toggle (isClothNNS, "ClothコンポーネントのConstraintsを一番近い頂点からコピー")).ToString ()
-			);
+			); EditorUserSettings.SetConfigValue(
+				 "CopyComponentsByRegex/considerSkinmeshRenderer",
+				 (considerSkinmeshRenderer = GUILayout.Toggle(considerSkinmeshRenderer, "(VRC用)SkinmeshRendererコンポーネント\nのroot値をコピー除外\n※ただしcopyComponentValueIfExistがTrueの時のみ")).ToString()
+			 ); EditorUserSettings.SetConfigValue(
+				 "CopyComponentsByRegex/copyValueIfExist",
+				 (copyValueIfExist = GUILayout.Toggle(copyValueIfExist, "copyComponentValueIfExist")).ToString()
+			 );
 
 			if (GUILayout.Button ("Paste")) {
 				if (copyTree == null || root == null) {
@@ -431,7 +485,8 @@
 				GUILayout.Label (
 					"「一番近い頂点からコピー」を利用する場合はあらかじめClothのコピー先にClothを追加するか、" +
 					"最初はチェックなしでコピーした後、別途Clothのみを対象にして「一番近い頂点からコピー」を行ってください。" +
-					"\n(UnityのClothコンポーネントの初期化時に頂点座標がずれてるのが原因のため現在は修正困難です)",
+					"\n(UnityのClothコンポーネントの初期化時に頂点座標がずれてるのが原因のため現在は修正困難です)"
+					,
 					labelStyle
 				);
 			}
