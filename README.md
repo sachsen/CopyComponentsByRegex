@@ -3,13 +3,15 @@
 これは独自仕様にvrchatモデルに適用するために改造したものです。
 悪いことは言わないので本家から取った方がいいです。
 
+以下は本家の文章
+
 ## 概要
 
 これは正規表現でマッチする、構造が同じ場所にあるコンポーネントを一括でコピーするUnityエディタ拡張です。
 
 ## インストール
 
-[このリポジトリのzipファイル](https://github.com/Taremin/CopyComponentsByRegex/archive/master.zip)をダウンロードして、解凍したものをアセット内にコピーします。
+[このリポジトリのzipファイル](https://github.com/sachsen/CopyComponentsByRegex/archive/master.zip)をダウンロードして、解凍したものをアセット内にコピーします。
 
 ### インストール時の注意
 
